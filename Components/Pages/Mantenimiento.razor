@@ -1,0 +1,151 @@
+@page "/mantenimiento"
+@using Microsoft.EntityFrameworkCore
+@using RedadasMigracion.Data
+@using RedadasMigracion.Models
+@inject AppDbContext _context
+@rendermode InteractiveServer
+<h3>Mantenimiento</h3>
+
+
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Fecha Detención</th>
+            <th>Nombre</th>
+            <th>Pasaporte</th>
+            <th>Fecha Nacimiento</th>
+            <th>Coordenadas</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var persona in personas)
+        {
+            <tr>
+                <td>@persona.FechaDetencion.ToShortDateString()</td>
+                <td>@persona.NombreApellido</td>
+                <td>@persona.NumeroPasaporte</td>
+                <td>@persona.FechaNacimiento.ToShortDateString()</td>
+                <td>@persona.Coordenadas</td>
+                <td>
+                    <button class="btn btn-warning" @onclick="() => EditarPersona(persona)">Editar</button>
+                    <button class="btn btn-danger" @onclick="() => EliminarPersona(persona)">Eliminar</button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<button class="btn btn-primary" @onclick="MostrarModalAgregar">Agregar Nueva Persona</button>
+
+<!-- Modal para agregar o editar persona -->
+@if (mostrarModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@((esModoEdicion ? "Editar Persona Detenida" : "Agregar Persona Detenida"))</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="@personaSeleccionada" OnValidSubmit="GuardarCambios">
+                        <div class="mb-3">
+                            <label for="fechaDetencion" class="form-label">Fecha de Detención</label>
+                            <InputDate id="fechaDetencion" class="form-control" @bind-Value="personaSeleccionada.FechaDetencion" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="nombreApellido" class="form-label">Nombre y Apellido</label>
+                            <InputText id="nombreApellido" class="form-control" @bind-Value="personaSeleccionada.NombreApellido" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="numeroPasaporte" class="form-label">Número de Pasaporte</label>
+                            <InputText id="numeroPasaporte" class="form-control" @bind-Value="personaSeleccionada.NumeroPasaporte" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="fechaNacimiento" class="form-label">Fecha de Nacimiento</label>
+                            <InputDate id="fechaNacimiento" class="form-control" @bind-Value="personaSeleccionada.FechaNacimiento" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="coordenadas" class="form-label">Coordenadas</label>
+                            <InputText id="coordenadas" class="form-control" @bind-Value="personaSeleccionada.Coordenadas" />
+                        </div>
+                        <button type="submit" class="btn btn-primary">@((esModoEdicion ? "Guardar Cambios" : "Guardar"))</button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+ 
+@code {
+    private List<PersonaDetenida> personas = new();
+    private PersonaDetenida personaSeleccionada = new();
+    private bool mostrarModal = false;
+    private bool esModoEdicion = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        personas = await _context.PersonasDetenidas.ToListAsync();
+    }
+
+    private void MostrarModalAgregar()
+    {
+        personaSeleccionada = new PersonaDetenida(); // Reinicia el modelo
+        esModoEdicion = false;
+        mostrarModal = true;
+    }
+
+    private void EditarPersona(PersonaDetenida persona)
+    {
+        personaSeleccionada = new PersonaDetenida
+        {
+            Id = persona.Id,
+            FechaDetencion = persona.FechaDetencion,
+            NombreApellido = persona.NombreApellido,
+            NumeroPasaporte = persona.NumeroPasaporte,
+            FechaNacimiento = persona.FechaNacimiento,
+            Coordenadas = persona.Coordenadas
+        };
+        esModoEdicion = true;
+        mostrarModal = true;
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+    }
+
+    private async Task GuardarCambios()
+    {
+        if (esModoEdicion)
+        {
+            var personaExistente = await _context.PersonasDetenidas.FindAsync(personaSeleccionada.Id);
+            if (personaExistente != null)
+            {
+                personaExistente.FechaDetencion = personaSeleccionada.FechaDetencion;
+                personaExistente.NombreApellido = personaSeleccionada.NombreApellido;
+                personaExistente.NumeroPasaporte = personaSeleccionada.NumeroPasaporte;
+                personaExistente.FechaNacimiento = personaSeleccionada.FechaNacimiento;
+                personaExistente.Coordenadas = personaSeleccionada.Coordenadas;
+                await _context.SaveChangesAsync();
+            }
+        }
+        else
+        {
+            _context.PersonasDetenidas.Add(personaSeleccionada);
+            await _context.SaveChangesAsync();
+            personas.Add(personaSeleccionada);
+        }
+
+        CerrarModal();
+    }
+
+    private async Task EliminarPersona(PersonaDetenida persona)
+    {
+        _context.PersonasDetenidas.Remove(persona);
+        await _context.SaveChangesAsync();
+        personas.Remove(persona);
+    }
+}
